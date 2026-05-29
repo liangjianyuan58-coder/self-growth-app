@@ -1,0 +1,51 @@
+/* src/app/globals.css */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --color-text:       #1a1a1a;
+  --color-text-sub:   #4b5563;
+  --color-muted:      #9ca3af;
+  --color-bg:         #f9fafb;
+  --color-bg-card:    #ffffff;
+  --color-bg-subtle:  #f3f4f6;
+  --color-border:     #e5e7eb;
+  --color-accent:     #7c6af7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-text:       #f3f4f6;
+    --color-text-sub:   #d1d5db;
+    --color-muted:      #6b7280;
+    --color-bg:         #0f0f0f;
+    --color-bg-card:    #1a1a1a;
+    --color-bg-subtle:  #111111;
+    --color-border:     #2a2a2a;
+    --color-accent:     #9d8ff8;
+  }
+  [data-cat="journal"] { background:#2e2060 !important; color:#c4b5fd !important; }
+  [data-cat="money"]   { background:#3b2d0a !important; color:#fcd34d !important; }
+  [data-cat="input"]   { background:#052e16 !important; color:#6ee7b7 !important; }
+  [data-cat="goal"]    { background:#0c1a4a !important; color:#93c5fd !important; }
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
+               'Noto Sans JP', sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }
+textarea, input { font-family: inherit; }
+
+.app-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.content { flex: 1; }
