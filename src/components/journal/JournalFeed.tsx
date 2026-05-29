@@ -4,6 +4,36 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { Journal, MoneyMetadata, InputMetadata } from '@/types'
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {}
+  }
+  return (
+    <button type="button" className="copy-btn" onClick={copy}>
+      {copied ? 'コピー済み ✓' : 'コピー'}
+      <style jsx>{`
+        .copy-btn {
+          font-size: 11px;
+          padding: 3px 10px;
+          border-radius: 6px;
+          border: 1px solid var(--color-accent, #7c6af7);
+          color: var(--color-accent, #7c6af7);
+          background: transparent;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background .15s, color .15s, border-color .15s;
+        }
+        .copy-btn:hover { background: var(--color-accent, #7c6af7); color: #fff; }
+      `}</style>
+    </button>
+  )
+}
+
 const CATEGORY_LABEL: Record<string, string> = {
   journal: '日記',
   money:   '支出',
@@ -67,12 +97,29 @@ export default function JournalFeed({ refreshKey = 0 }: Props) {
           {/* input サブ情報 */}
           {j.category === 'input' && (() => {
             const m = j.metadata as InputMetadata
-            return m.title ? (
-              <div className="entry-input">
-                <span className="input-type">{m.source_type}</span>
-                <span className="input-title">『{m.title}』</span>
+            if (!m.title && !m.output_draft) return null
+            return (
+              <div className="entry-input-wrap">
+                {m.title && (
+                  <div className="entry-input">
+                    <span className="input-type">{m.source_type}</span>
+                    <span className="input-title">『{m.title}』</span>
+                  </div>
+                )}
+                {m.highlight && (
+                  <p className="input-highlight">{m.highlight}</p>
+                )}
+                {m.output_draft && (
+                  <div className="output-draft">
+                    <div className="draft-head">
+                      <span className="draft-label">発信草稿</span>
+                      <CopyButton text={m.output_draft} />
+                    </div>
+                    <p className="draft-text">{m.output_draft}</p>
+                  </div>
+                )}
               </div>
-            ) : null
+            )
           })()}
 
           {j.tags.length > 0 && (
@@ -140,6 +187,7 @@ export default function JournalFeed({ refreshKey = 0 }: Props) {
           font-size: 11px;
           color: var(--color-muted, #9ca3af);
         }
+        .entry-input-wrap { margin-bottom: 6px; }
         .entry-input {
           display: flex;
           align-items: center;
@@ -156,6 +204,40 @@ export default function JournalFeed({ refreshKey = 0 }: Props) {
         .input-title {
           font-size: 12px;
           color: var(--color-text-sub, #4b5563);
+        }
+        .input-highlight {
+          font-size: 13px;
+          color: var(--color-text-sub, #4b5563);
+          line-height: 1.6;
+          margin: 0 0 8px;
+          padding-left: 10px;
+          border-left: 2px solid var(--color-border, #e5e7eb);
+        }
+        .output-draft {
+          padding: 10px 12px;
+          background: var(--color-bg-subtle, #f9fafb);
+          border-left: 2px solid var(--color-accent, #7c6af7);
+          border-radius: 0 8px 8px 0;
+        }
+        .draft-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 4px;
+        }
+        .draft-label {
+          font-size: 10px;
+          font-weight: 600;
+          color: var(--color-accent, #7c6af7);
+          text-transform: uppercase;
+          letter-spacing: .05em;
+        }
+        .draft-text {
+          font-size: 13px;
+          color: var(--color-text, #1a1a1a);
+          margin: 0;
+          line-height: 1.6;
+          white-space: pre-wrap;
         }
         .entry-tags {
           display: flex;

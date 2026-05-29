@@ -2,8 +2,9 @@
 // src/app/journal/page.tsx
 
 import { useState } from 'react'
-import JournalInput from '@/components/journal/JournalInput'
-import JournalFeed  from '@/components/journal/JournalFeed'
+import JournalInput  from '@/components/journal/JournalInput'
+import JournalFeed   from '@/components/journal/JournalFeed'
+import MoneySummary  from '@/components/journal/MoneySummary'
 
 export default function JournalPage() {
   const [refreshKey, setRefreshKey] = useState(0)
@@ -14,6 +15,10 @@ export default function JournalPage() {
         <h1 className="page-title">今日のログ</h1>
         <p className="page-sub">書いたら自動で分類されます</p>
       </header>
+
+      <section className="money-section">
+        <MoneySummary refreshKey={refreshKey} />
+      </section>
 
       <section className="input-section">
         <JournalInput onSaved={() => setRefreshKey(k => k + 1)} />
@@ -42,6 +47,7 @@ export default function JournalPage() {
           color: var(--color-muted, #9ca3af);
           margin: 0;
         }
+        .money-section { margin-bottom: 16px; }
         .input-section { margin-bottom: 32px; }
         .feed-heading {
           font-size: 13px;
