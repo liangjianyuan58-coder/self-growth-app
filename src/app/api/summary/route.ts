@@ -1,9 +1,8 @@
 // src/app/api/summary/route.ts
-// GET  /api/summary?week=2025-05-26  — 週次サマリー取得（キャッシュ優先）
-// POST /api/summary                  — 強制再生成
+// 一人用：認証チェックを外し、固定ユーザーIDで集計する
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient, USER_ID } from '@/lib/supabase/admin'
 import { generateWeeklySummary } from '@/lib/ai/claude'
 import type { Journal } from '@/types'
 
@@ -14,9 +13,7 @@ function getWeekStart(date: Date): string {
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = createAdminClient()
 
   const { searchParams } = new URL(req.url)
   const weekParam = searchParams.get('week')
@@ -24,43 +21,37 @@ export async function GET(req: NextRequest) {
   const weekEnd   = new Date(new Date(weekStart).getTime() + 7 * 86400_000)
     .toISOString().slice(0, 10)
 
-  // キャッシュ確認
   const { data: cached } = await supabase
     .from('weekly_reviews')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', USER_ID)
     .eq('week_start', weekStart)
     .single()
 
   if (cached) return NextResponse.json({ review: cached, cached: true })
 
-  // キャッシュなし → 生成
-  return generateAndSave({ supabase, userId: user.id, weekStart, weekEnd })
+  return generateAndSave({ supabase, weekStart, weekEnd })
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = createAdminClient()
 
   const { week } = await req.json().catch(() => ({}))
   const weekStart = week ?? getWeekStart(new Date())
   const weekEnd   = new Date(new Date(weekStart).getTime() + 7 * 86400_000)
     .toISOString().slice(0, 10)
 
-  return generateAndSave({ supabase, userId: user.id, weekStart, weekEnd, force: true })
+  return generateAndSave({ supabase, weekStart, weekEnd, force: true })
 }
 
 async function generateAndSave({
   supabase,
-  userId,
   weekStart,
   weekEnd,
   force = false,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any
-  userId: string
   weekStart: string
   weekEnd: string
   force?: boolean
@@ -68,7 +59,7 @@ async function generateAndSave({
   const { data: journals, error } = await supabase
     .from('journals')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', USER_ID)
     .gte('created_at', weekStart)
     .lt('created_at', weekEnd)
     .order('created_at', { ascending: true })
@@ -82,7 +73,7 @@ async function generateAndSave({
   const { data: review, error: upsertError } = await supabase
     .from('weekly_reviews')
     .upsert(
-      { user_id: userId, week_start: weekStart, summary, patterns, generated_at: new Date().toISOString() },
+      { user_id: USER_ID, week_start: weekStart, summary, patterns, generated_at: new Date().toISOString() },
       { onConflict: 'user_id,week_start' }
     )
     .select()

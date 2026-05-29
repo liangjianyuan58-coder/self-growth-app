@@ -1,28 +1,24 @@
 // src/app/api/journal/route.ts
-// POST /api/journal — エントリ保存 + AI分析
+// 一人用：認証チェックを外し、固定ユーザーIDで保存する
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient, USER_ID } from '@/lib/supabase/admin'
 import { analyzeJournal } from '@/lib/ai/claude'
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = createAdminClient()
 
   const { body } = await req.json()
   if (!body || typeof body !== 'string' || body.trim().length === 0) {
     return NextResponse.json({ error: 'body is required' }, { status: 400 })
   }
 
-  // AI分析（並行して保存しない — 分析結果を保存に使うため）
   const analysis = await analyzeJournal(body.trim())
 
   const { data, error } = await supabase
     .from('journals')
     .insert({
-      user_id:  user.id,
+      user_id:  USER_ID,
       body:     body.trim(),
       mood:     analysis.mood,
       tags:     analysis.tags,
@@ -40,21 +36,18 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ journal: data, analysis })
 }
 
-// GET /api/journal — 一覧取得（最新50件）
 export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = createAdminClient()
 
   const { searchParams } = new URL(req.url)
   const category = searchParams.get('category')
-  const from = searchParams.get('from')   // ISO date
+  const from = searchParams.get('from')
   const to   = searchParams.get('to')
 
   let query = supabase
     .from('journals')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', USER_ID)
     .order('created_at', { ascending: false })
     .limit(50)
 
