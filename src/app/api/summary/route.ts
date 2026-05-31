@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, USER_ID } from '@/lib/supabase/admin'
-import { generateWeeklySummary } from '@/lib/ai/claude'
+import { generateWeeklySummary } from '@/lib/ai/gemini'
 import type { Journal } from '@/types'
 
 function getWeekStart(date: Date): string {
