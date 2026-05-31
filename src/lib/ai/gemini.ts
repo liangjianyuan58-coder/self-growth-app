@@ -1,22 +1,24 @@
-// src/lib/ai/claude.ts
-// Anthropic API ラッパー
+// src/lib/ai/gemini.ts
+// Google Gemini Flash（無料枠: 1日1,500リクエスト）
 
-import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { AnalysisResult, Journal, WeeklyPatterns } from '@/types'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+
+// JSON モードで確実に JSON を返させる
+function getModel() {
+  return genai.getGenerativeModel({
+    model: 'gemini-1.5-flash',
+    generationConfig: { responseMimeType: 'application/json' },
+  })
+}
 
 // --------------------------------------------------------
 // ジャーナルエントリの自動分析
 // --------------------------------------------------------
 export async function analyzeJournal(body: string): Promise<AnalysisResult> {
-  const message = await client.messages.create({
-    model: 'claude-opus-4-5',
-    max_tokens: 1024,
-    messages: [
-      {
-        role: 'user',
-        content: `以下のメモを分析して JSON で返してください。
+  const prompt = `以下のメモを分析して JSON で返してください。
 
 メモ: """${body}"""
 
@@ -35,7 +37,7 @@ export async function analyzeJournal(body: string): Promise<AnalysisResult> {
     "source_type": "book" | "anime" | "article" | "podcast" | "other",
     "title": string,
     "highlight": string,
-    "output_draft": string,   // 発信できそうな一言（Xポスト相当）
+    "output_draft": string,
 
     // category が goal の場合
     "progress_note": string,
@@ -49,18 +51,12 @@ export async function analyzeJournal(body: string): Promise<AnalysisResult> {
 - 金額・支出が含まれる → money
 - 本・アニメ・記事・メモした知識 → input
 - 目標への言及 → goal
-- それ以外 → journal
+- それ以外 → journal`
 
-JSON のみ返してください。説明や markdown コードブロックは不要です。`,
-      },
-    ],
-  })
-
-  const text = message.content[0].type === 'text' ? message.content[0].text : ''
   try {
-    return JSON.parse(text) as AnalysisResult
+    const result = await getModel().generateContent(prompt)
+    return JSON.parse(result.response.text()) as AnalysisResult
   } catch {
-    // パース失敗時のフォールバック
     return {
       category: 'journal',
       tags: [],
@@ -81,23 +77,16 @@ export async function generateWeeklySummary(
     return {
       summary: 'この週のログはありません。',
       patterns: {
-        strengths: [],
-        struggles: [],
-        money_total: 0,
-        money_breakdown: {},
-        inputs: [],
-        mood_avg: 0,
-        entry_count: 0,
+        strengths: [], struggles: [],
+        money_total: 0, money_breakdown: {},
+        inputs: [], mood_avg: 0, entry_count: 0,
       },
     }
   }
 
-  // 金銭集計（APIに渡す前にJS側で計算）
+  // JS側で集計（APIトークン節約）
   const moneyEntries = journals.filter(j => j.category === 'money')
-  const money_total = moneyEntries.reduce((sum, j) => {
-    const m = j.metadata as { amount?: number }
-    return sum + (m.amount ?? 0)
-  }, 0)
+  const money_total = moneyEntries.reduce((s, j) => s + ((j.metadata as { amount?: number }).amount ?? 0), 0)
 
   const money_breakdown: Record<string, number> = {}
   moneyEntries.forEach(j => {
@@ -113,22 +102,16 @@ export async function generateWeeklySummary(
       return { title: m.title ?? '', source_type: m.source_type ?? 'other' }
     })
 
-  const mood_avg =
-    journals.filter(j => j.mood).reduce((s, j) => s + (j.mood ?? 0), 0) /
-    (journals.filter(j => j.mood).length || 1)
+  const moodsWithValue = journals.filter(j => j.mood)
+  const mood_avg = moodsWithValue.length
+    ? moodsWithValue.reduce((s, j) => s + (j.mood ?? 0), 0) / moodsWithValue.length
+    : 0
 
-  // Claudeに渡すのはテキスト部分のみ
   const entrySummaries = journals
-    .map(j => `[${j.created_at.slice(0, 10)}] ${j.metadata && 'summary_line' in j.metadata ? (j.metadata as unknown as { summary_line: string }).summary_line : j.body.slice(0, 40)}`)
+    .map(j => `[${j.created_at.slice(0, 10)}] ${'summary_line' in (j.metadata as object) ? (j.metadata as unknown as { summary_line: string }).summary_line : j.body.slice(0, 40)}`)
     .join('\n')
 
-  const message = await client.messages.create({
-    model: 'claude-opus-4-5',
-    max_tokens: 1024,
-    messages: [
-      {
-        role: 'user',
-        content: `以下は1週間のログ一覧です。
+  const prompt = `以下は1週間のログ一覧です。
 
 ${entrySummaries}
 
@@ -137,31 +120,32 @@ ${entrySummaries}
   "summary": string,       // 3〜4文の週次振り返り文
   "strengths": string[],   // うまくいったこと・パターン（2〜3個）
   "struggles": string[]    // 課題・気になったこと（1〜2個）
-}
+}`
 
-JSON のみ返してください。`,
-      },
-    ],
-  })
-
-  const text = message.content[0].type === 'text' ? message.content[0].text : '{}'
-  let parsed: { summary: string; strengths: string[]; struggles: string[] }
   try {
-    parsed = JSON.parse(text)
+    const result = await getModel().generateContent(prompt)
+    const parsed = JSON.parse(result.response.text()) as {
+      summary: string; strengths: string[]; struggles: string[]
+    }
+    return {
+      summary: parsed.summary,
+      patterns: {
+        strengths: parsed.strengths ?? [],
+        struggles: parsed.struggles ?? [],
+        money_total, money_breakdown, inputs: inputEntries,
+        mood_avg: Math.round(mood_avg * 10) / 10,
+        entry_count: journals.length,
+      },
+    }
   } catch {
-    parsed = { summary: text.slice(0, 200), strengths: [], struggles: [] }
-  }
-
-  return {
-    summary: parsed.summary,
-    patterns: {
-      strengths: parsed.strengths ?? [],
-      struggles: parsed.struggles ?? [],
-      money_total,
-      money_breakdown,
-      inputs: inputEntries,
-      mood_avg: Math.round(mood_avg * 10) / 10,
-      entry_count: journals.length,
-    },
+    return {
+      summary: '週次サマリーの生成に失敗しました。',
+      patterns: {
+        strengths: [], struggles: [],
+        money_total, money_breakdown, inputs: inputEntries,
+        mood_avg: Math.round(mood_avg * 10) / 10,
+        entry_count: journals.length,
+      },
+    }
   }
 }

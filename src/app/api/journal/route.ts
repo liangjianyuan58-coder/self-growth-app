@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, USER_ID } from '@/lib/supabase/admin'
-import { analyzeJournal } from '@/lib/ai/claude'
+import { analyzeJournal } from '@/lib/ai/gemini'
 
 export async function POST(req: NextRequest) {
   const supabase = createAdminClient()
