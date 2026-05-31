@@ -10,13 +10,15 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // ジャーナルエントリの自動分析
 // --------------------------------------------------------
 export async function analyzeJournal(body: string): Promise<AnalysisResult> {
-  const message = await client.messages.create({
-    model: 'claude-opus-4-5',
-    max_tokens: 1024,
-    messages: [
-      {
-        role: 'user',
-        content: `以下のメモを分析して JSON で返してください。
+  let rawText = ''
+  try {
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: `以下のメモを分析して JSON で返してください。
 
 メモ: """${body}"""
 
@@ -51,16 +53,28 @@ export async function analyzeJournal(body: string): Promise<AnalysisResult> {
 - 目標への言及 → goal
 - それ以外 → journal
 
-JSON のみ返してください。説明や markdown コードブロックは不要です。`,
-      },
-    ],
-  })
+JSONオブジェクトのみ返してください。マークダウンのコードブロックや説明文は含めないでください。`,
+        },
+      ],
+    })
+    rawText = message.content[0].type === 'text' ? message.content[0].text : ''
+  } catch (err) {
+    console.error('[analyzeJournal] API error:', err)
+    return {
+      category: 'journal',
+      tags: [],
+      mood: 3,
+      metadata: {},
+      summary_line: body.slice(0, 15),
+    }
+  }
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : ''
+  // マークダウンコードブロック（```json ... ```）を除去してからパース
+  const text = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
   try {
     return JSON.parse(text) as AnalysisResult
   } catch {
-    // パース失敗時のフォールバック
+    console.error('[analyzeJournal] JSON parse error. raw:', rawText)
     return {
       category: 'journal',
       tags: [],
@@ -123,7 +137,7 @@ export async function generateWeeklySummary(
     .join('\n')
 
   const message = await client.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
     messages: [
       {
