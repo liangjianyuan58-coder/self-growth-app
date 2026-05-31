@@ -117,3 +117,15 @@ export interface ScheduleEvent {
   created_at: string
   updated_at: string
 }
+
+// ── タスク ────────────────────────────────────────────────────────
+
+export interface Task {
+  id: string
+  title: string
+  note: string | null
+  done: boolean
+  done_at: string | null
+  created_at: string
+  updated_at: string
+}

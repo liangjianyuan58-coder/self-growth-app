@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 const NAV = [
   { href: '/journal',  label: 'ログ',    icon: '✏️' },
   { href: '/review',   label: 'レビュー', icon: '📊' },
+  { href: '/tasks',    label: 'タスク',   icon: '✅' },
   { href: '/schedule', label: '調整',    icon: '📅' },
 ]
 
