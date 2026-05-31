@@ -39,6 +39,13 @@ export interface GoalMetadata {
   progress_note: string
 }
 
+export interface AutoEvent {
+  title: string
+  date: string            // YYYY-MM-DD
+  start_time: string | null
+  end_time: string | null
+}
+
 // AIが返す分析結果
 export interface AnalysisResult {
   category: Category
@@ -46,6 +53,8 @@ export interface AnalysisResult {
   mood: 1 | 2 | 3 | 4 | 5
   metadata: JournalMetadata
   summary_line: string       // 1行要約（週次レビュー用）
+  auto_tasks: string[]       // 自動追加するタスク
+  auto_events: AutoEvent[]   // 自動追加する予定
 }
 
 export interface Goal {

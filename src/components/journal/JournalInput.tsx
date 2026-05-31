@@ -19,10 +19,12 @@ interface Props {
 }
 
 export default function JournalInput({ onSaved }: Props) {
-  const [body, setBody]           = useState('')
-  const [status, setStatus]       = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
-  const [analysis, setAnalysis]   = useState<AnalysisResult | null>(null)
-  const textareaRef               = useRef<HTMLTextAreaElement>(null)
+  const [body, setBody]             = useState('')
+  const [status, setStatus]         = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
+  const [analysis, setAnalysis]     = useState<AnalysisResult | null>(null)
+  const [addedTasks, setAddedTasks] = useState<string[]>([])
+  const [addedEvents, setAddedEvents] = useState<string[]>([])
+  const textareaRef                 = useRef<HTMLTextAreaElement>(null)
 
   // テキストエリアの高さ自動調整
   useEffect(() => {
@@ -38,6 +40,8 @@ export default function JournalInput({ onSaved }: Props) {
 
     setStatus('saving')
     setAnalysis(null)
+    setAddedTasks([])
+    setAddedEvents([])
 
     try {
       const res = await fetch('/api/journal', {
@@ -49,12 +53,13 @@ export default function JournalInput({ onSaved }: Props) {
       if (!res.ok) throw new Error(json.error)
 
       setAnalysis(json.analysis as AnalysisResult)
+      setAddedTasks(json.addedTasks ?? [])
+      setAddedEvents(json.addedEvents ?? [])
       setStatus('done')
       setBody('')
       onSaved?.()
 
-      // 3秒後にリセット
-      setTimeout(() => { setStatus('idle'); setAnalysis(null) }, 3000)
+      setTimeout(() => { setStatus('idle'); setAnalysis(null); setAddedTasks([]); setAddedEvents([]) }, 5000)
     } catch {
       setStatus('error')
       setTimeout(() => setStatus('idle'), 2000)
@@ -119,6 +124,22 @@ export default function JournalInput({ onSaved }: Props) {
               <p className="draft-text">
                 {(analysis.metadata as { output_draft: string }).output_draft}
               </p>
+            </div>
+          )}
+
+          {/* 自動追加されたタスク */}
+          {addedTasks.length > 0 && (
+            <div className="auto-added">
+              <span className="auto-label">✅ タスクに追加</span>
+              {addedTasks.map(t => <span key={t} className="auto-item">{t}</span>)}
+            </div>
+          )}
+
+          {/* 自動追加された予定 */}
+          {addedEvents.length > 0 && (
+            <div className="auto-added">
+              <span className="auto-label">📅 予定に追加</span>
+              {addedEvents.map(e => <span key={e} className="auto-item">{e}</span>)}
             </div>
           )}
         </div>
@@ -263,6 +284,27 @@ export default function JournalInput({ onSaved }: Props) {
           color: var(--color-text-sub, #4b5563);
           margin: 4px 0 0;
           line-height: 1.5;
+        }
+        .auto-added {
+          margin-top: 8px;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px;
+        }
+        .auto-label {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--color-muted, #9ca3af);
+          white-space: nowrap;
+        }
+        .auto-item {
+          font-size: 12px;
+          padding: 2px 8px;
+          border-radius: 12px;
+          background: var(--color-bg-card, #fff);
+          border: 1px solid var(--color-border, #e5e7eb);
+          color: var(--color-text-sub, #4b5563);
         }
       `}</style>
     </div>
