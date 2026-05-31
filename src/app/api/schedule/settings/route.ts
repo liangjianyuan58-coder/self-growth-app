@@ -7,7 +7,7 @@ import { WeeklyTemplate } from '@/types'
 const DEFAULT_TEMPLATE: WeeklyTemplate = Object.fromEntries(
   [0, 1, 2, 3, 4, 5, 6].map(d => [
     String(d),
-    { enabled: false, slots: [] },
+    { enabled: false, ranges: [] },
   ])
 )
 

@@ -2,19 +2,18 @@
 // src/components/schedule/CandidateGenerator.tsx
 
 import { useState } from 'react'
-import { CandidateDate } from '@/types'
+import type { CandidateDate } from '@/types'
 
 const NUMBERS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩']
 
 function buildCopyText(candidates: CandidateDate[]): string {
-  const lines = candidates.map((c, i) => {
-    const slots = c.slotLabels.join('・')
-    return `${NUMBERS[i]} ${c.dayLabel}　${slots}`
-  })
+  const lines = candidates.map((c, i) =>
+    `${NUMBERS[i]} ${c.dayLabel}　${c.rangeLabels.join(' / ')}`
+  )
   return ['【候補日】', ...lines, '', 'ご都合の良い日時をお知らせください🙏'].join('\n')
 }
 
-export default function CandidateGenerator({ onGenerate }: { onGenerate?: () => void }) {
+export default function CandidateGenerator() {
   const [candidates, setCandidates] = useState<CandidateDate[]>([])
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -29,7 +28,6 @@ export default function CandidateGenerator({ onGenerate }: { onGenerate?: () => 
     setCandidates(data ?? [])
     setEmpty((data ?? []).length === 0)
     setLoading(false)
-    onGenerate?.()
   }
 
   async function copy() {
@@ -39,7 +37,6 @@ export default function CandidateGenerator({ onGenerate }: { onGenerate?: () => 
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // fallback: show alert
       alert(text)
     }
   }
@@ -47,29 +44,27 @@ export default function CandidateGenerator({ onGenerate }: { onGenerate?: () => 
   return (
     <section className="card">
       <h2 className="section-title">候補日を出す</h2>
-      <p className="section-desc">設定に基づいて直近5日分を生成</p>
+      <p className="section-desc">空き時間設定から直近5日分を生成</p>
 
       <button className="gen-btn" onClick={generate} disabled={loading}>
         {loading ? '生成中…' : '📅 候補日を生成'}
       </button>
 
       {empty && (
-        <p className="empty-msg">
-          空き日が見つかりません。週間テンプレートを設定してください。
-        </p>
+        <p className="empty-msg">空き日が見つかりません。「空き時間設定」タブで時間帯を設定してください。</p>
       )}
 
       {candidates.length > 0 && (
         <>
           <div className="candidates">
             {candidates.map((c, i) => (
-              <div key={c.date} className="candidate-row">
+              <div key={c.date} className="row">
                 <span className="num">{NUMBERS[i]}</span>
                 <div className="info">
                   <span className="day-label">{c.dayLabel}</span>
-                  <div className="slot-tags">
-                    {c.slotLabels.map(s => (
-                      <span key={s} className="slot-tag">{s}</span>
+                  <div className="tags">
+                    {c.rangeLabels.map(r => (
+                      <span key={r} className="tag">{r}</span>
                     ))}
                   </div>
                 </div>
@@ -100,23 +95,20 @@ export default function CandidateGenerator({ onGenerate }: { onGenerate?: () => 
         .gen-btn:disabled { opacity: .5; cursor: default; }
         .empty-msg { margin: 14px 0 0; font-size: 13px; color: var(--color-muted); text-align: center; }
         .candidates { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
-        .candidate-row { display: flex; align-items: center; gap: 12px; }
-        .num { font-size: 18px; flex-shrink: 0; color: #0d9488; font-weight: 700; }
+        .row { display: flex; align-items: flex-start; gap: 12px; }
+        .num { font-size: 18px; flex-shrink: 0; color: #0d9488; font-weight: 700; margin-top: 1px; }
         .info { display: flex; flex-direction: column; gap: 4px; }
-        .day-label { font-size: 15px; font-weight: 700; color: var(--color-text); }
-        .slot-tags { display: flex; gap: 6px; }
-        .slot-tag {
-          padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
+        .day-label { font-size: 15px; font-weight: 700; }
+        .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tag {
+          padding: 2px 9px; border-radius: 12px; font-size: 12px; font-weight: 600;
           background: #ccfbf1; color: #0d9488;
         }
-        @media (prefers-color-scheme: dark) {
-          .slot-tag { background: #042f2e; color: #2dd4bf; }
-        }
+        @media (prefers-color-scheme: dark) { .tag { background: #042f2e; color: #2dd4bf; } }
         .copy-btn {
           margin-top: 16px; width: 100%; padding: 10px; border-radius: 10px;
           border: 1.5px solid #0d9488; background: transparent;
           color: #0d9488; font-size: 14px; font-weight: 700; cursor: pointer;
-          transition: all .15s;
         }
         .copy-btn:active { background: #ccfbf1; }
         .preview { margin-top: 14px; }
@@ -124,8 +116,8 @@ export default function CandidateGenerator({ onGenerate }: { onGenerate?: () => 
         .preview-text {
           margin: 0; padding: 12px; border-radius: 10px;
           background: var(--color-bg-subtle); border: 1px solid var(--color-border);
-          font-size: 13px; line-height: 1.8; white-space: pre-wrap;
-          font-family: inherit; color: var(--color-text-sub);
+          font-size: 13px; line-height: 1.8; white-space: pre-wrap; font-family: inherit;
+          color: var(--color-text-sub);
         }
       `}</style>
     </section>

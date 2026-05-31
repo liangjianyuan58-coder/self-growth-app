@@ -79,11 +79,14 @@ export interface WeeklyPatterns {
 
 // ── スケジュール管理 ────────────────────────────────────────────
 
-export type TimeSlot = 'morning' | 'afternoon' | 'evening'
+export interface TimeRange {
+  from: string  // "HH:MM"
+  to: string    // "HH:MM"
+}
 
 export interface DayAvailability {
   enabled: boolean
-  slots: TimeSlot[]
+  ranges: TimeRange[]
 }
 
 // keys: "0"=日, "1"=月, "2"=火, "3"=水, "4"=木, "5"=金, "6"=土 (JS getDay() 準拠)
@@ -97,8 +100,19 @@ export interface ScheduleBlock {
 }
 
 export interface CandidateDate {
-  date: string         // YYYY-MM-DD
-  dayLabel: string     // "6月5日(木)"
-  slots: TimeSlot[]
-  slotLabels: string[] // ["午後", "夜"]
+  date: string          // YYYY-MM-DD
+  dayLabel: string      // "6月5日(木)"
+  ranges: TimeRange[]
+  rangeLabels: string[] // ["10:00〜12:00", "14:00〜17:00"]
+}
+
+export interface ScheduleEvent {
+  id: string
+  title: string
+  event_date: string      // YYYY-MM-DD
+  start_time: string | null  // "HH:MM:SS" from DB
+  end_time: string | null
+  note: string | null
+  created_at: string
+  updated_at: string
 }
