@@ -5,8 +5,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const NAV = [
-  { href: '/journal', label: 'ログ',  icon: '✏️' },
-  { href: '/review',  label: 'レビュー', icon: '📊' },
+  { href: '/journal',  label: 'ログ',    icon: '✏️' },
+  { href: '/review',   label: 'レビュー', icon: '📊' },
+  { href: '/schedule', label: '調整',    icon: '📅' },
 ]
 
 export default function BottomNav() {

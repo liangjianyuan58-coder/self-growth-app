@@ -76,3 +76,29 @@ export interface WeeklyPatterns {
   mood_avg: number
   entry_count: number
 }
+
+// ── スケジュール管理 ────────────────────────────────────────────
+
+export type TimeSlot = 'morning' | 'afternoon' | 'evening'
+
+export interface DayAvailability {
+  enabled: boolean
+  slots: TimeSlot[]
+}
+
+// keys: "0"=日, "1"=月, "2"=火, "3"=水, "4"=木, "5"=金, "6"=土 (JS getDay() 準拠)
+export type WeeklyTemplate = Record<string, DayAvailability>
+
+export interface ScheduleBlock {
+  id: string
+  blocked_date: string  // YYYY-MM-DD
+  note: string | null
+  created_at: string
+}
+
+export interface CandidateDate {
+  date: string         // YYYY-MM-DD
+  dayLabel: string     // "6月5日(木)"
+  slots: TimeSlot[]
+  slotLabels: string[] // ["午後", "夜"]
+}
