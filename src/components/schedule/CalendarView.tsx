@@ -7,7 +7,13 @@ import type { ScheduleEvent } from '@/types'
 const JP_SHORT = ['月', '火', '水', '木', '金', '土', '日']
 const JP_DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
 
-function toISO(d: Date) { return d.toISOString().slice(0, 10) }
+function toISO(d: Date) {
+  // toISOString() は UTC を返すためタイムゾーンずれが生じる → ローカル日付パーツを使用
+  const y  = d.getFullYear()
+  const m  = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
+}
 
 function formatLabel(iso: string) {
   const d = new Date(iso + 'T00:00:00')

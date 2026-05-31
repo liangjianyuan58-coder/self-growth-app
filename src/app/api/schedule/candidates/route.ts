@@ -14,7 +14,10 @@ function addDays(d: Date, n: number): Date {
   const c = new Date(d); c.setDate(c.getDate() + n); return c
 }
 
-function toISO(d: Date): string { return d.toISOString().slice(0, 10) }
+// toISOString() は UTC → JST ずれ防止のため toLocaleDateString を使用
+function toISO(d: Date): string {
+  return d.toLocaleDateString('sv', { timeZone: 'Asia/Tokyo' })
+}
 
 function hhmm(t: string): string { return t.slice(0, 5) }
 
