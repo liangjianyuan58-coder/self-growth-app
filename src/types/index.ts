@@ -109,10 +109,11 @@ export interface CandidateDate {
 export interface ScheduleEvent {
   id: string
   title: string
-  event_date: string      // YYYY-MM-DD
+  event_date: string         // YYYY-MM-DD
   start_time: string | null  // "HH:MM:SS" from DB
   end_time: string | null
   note: string | null
+  google_event_id: string | null
   created_at: string
   updated_at: string
 }

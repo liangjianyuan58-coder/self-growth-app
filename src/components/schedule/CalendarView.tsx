@@ -51,6 +51,9 @@ export default function CalendarView({ refreshKey, onAdd, onEdit }: Props) {
   const [month, setMonth] = useState(now.getMonth())
   const [events, setEvents] = useState<ScheduleEvent[]>([])
   const [selected, setSelected] = useState<string | null>(todayISO)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
+  const [googleConnected, setGoogleConnected] = useState(false)
 
   const load = useCallback(async (y: number, m: number) => {
     const ym = `${y}-${String(m + 1).padStart(2, '0')}`
@@ -60,6 +63,32 @@ export default function CalendarView({ refreshKey, onAdd, onEdit }: Props) {
   }, [])
 
   useEffect(() => { load(year, month) }, [year, month, refreshKey, load])
+
+  useEffect(() => {
+    fetch('/api/schedule/sync/google')
+      .then(r => r.json())
+      .then(({ connected }) => setGoogleConnected(connected))
+  }, [])
+
+  async function syncFromGoogle() {
+    setSyncing(true)
+    setSyncMsg(null)
+    const month_str = `${year}-${String(month + 1).padStart(2, '0')}`
+    const res = await fetch('/api/schedule/sync/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ month: month_str }),
+    })
+    const { created, updated, error } = await res.json()
+    if (error) {
+      setSyncMsg('同期失敗')
+    } else {
+      setSyncMsg(`+${created} 件追加、${updated} 件更新`)
+      await load(year, month)
+    }
+    setSyncing(false)
+    setTimeout(() => setSyncMsg(null), 3000)
+  }
 
   function prevMonth() {
     if (month === 0) { setYear(y => y - 1); setMonth(11) }
@@ -84,9 +113,19 @@ export default function CalendarView({ refreshKey, onAdd, onEdit }: Props) {
     <div className="wrap">
       {/* ナビ */}
       <div className="nav">
-        <button className="nav-btn" onClick={prevMonth}>‹</button>
-        <span className="nav-title">{year}年{month + 1}月</span>
-        <button className="nav-btn" onClick={nextMonth}>›</button>
+        <div className="nav-left">
+          <button className="nav-btn" onClick={prevMonth}>‹</button>
+          <span className="nav-title">{year}年{month + 1}月</span>
+          <button className="nav-btn" onClick={nextMonth}>›</button>
+        </div>
+        {googleConnected && (
+          <div className="sync-area">
+            {syncMsg && <span className="sync-msg">{syncMsg}</span>}
+            <button className="sync-btn" onClick={syncFromGoogle} disabled={syncing}>
+              {syncing ? '同期中…' : '🔄 Google'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 曜日ヘッダー */}
@@ -156,9 +195,17 @@ export default function CalendarView({ refreshKey, onAdd, onEdit }: Props) {
 
       <style jsx>{`
         .wrap { background: var(--color-bg-card); border-radius: 14px; border: 1px solid var(--color-border); overflow: hidden; }
-        .nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
+        .nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; gap: 8px; }
+        .nav-left { display: flex; align-items: center; }
         .nav-title { font-size: 16px; font-weight: 800; }
         .nav-btn { background: none; border: none; cursor: pointer; font-size: 22px; color: var(--color-text-sub); padding: 0 6px; line-height: 1; }
+        .sync-area { display: flex; align-items: center; gap: 6px; }
+        .sync-btn {
+          padding: 5px 10px; border-radius: 8px; border: 1.5px solid var(--color-border);
+          background: transparent; color: var(--color-text-sub); font-size: 12px; cursor: pointer;
+        }
+        .sync-btn:disabled { opacity: .5; cursor: default; }
+        .sync-msg { font-size: 11px; color: #0d9488; font-weight: 600; }
         .header-row { display: grid; grid-template-columns: repeat(7, 1fr); padding: 0 8px; }
         .hcell { text-align: center; font-size: 11px; font-weight: 700; color: var(--color-muted); padding: 4px 0 6px; }
         .hcell.sat { color: #60a5fa; }
