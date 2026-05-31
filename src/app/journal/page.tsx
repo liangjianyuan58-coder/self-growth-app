@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import JournalInput  from '@/components/journal/JournalInput'
 import JournalFeed   from '@/components/journal/JournalFeed'
-import MoneySummary  from '@/components/journal/MoneySummary'
+import MoneyDashboard from '@/components/journal/MoneyDashboard'
 
 export default function JournalPage() {
   const [refreshKey, setRefreshKey] = useState(0)
@@ -17,7 +17,7 @@ export default function JournalPage() {
       </header>
 
       <section className="money-section">
-        <MoneySummary refreshKey={refreshKey} />
+        <MoneyDashboard refreshKey={refreshKey} />
       </section>
 
       <section className="input-section">

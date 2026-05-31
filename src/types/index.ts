@@ -65,6 +65,15 @@ export interface Goal {
   due_date: string | null
   status: 'active' | 'done' | 'archived'
   created_at: string
+  updated_at?: string
+}
+
+export interface UserSettings {
+  user_id: string
+  current_balance: number
+  monthly_budget: number
+  weekly_budget: number
+  updated_at: string
 }
 
 export interface WeeklyReview {

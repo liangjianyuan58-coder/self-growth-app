@@ -43,12 +43,14 @@ export default function TaskList() {
   }
 
   async function remove(id: string) {
-    await fetch('/api/tasks', {
+    const res = await fetch('/api/tasks', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     })
-    setTasks(prev => prev.filter(t => t.id !== id))
+    if (res.ok) {
+      setTasks(prev => prev.filter(t => t.id !== id))
+    }
   }
 
   const todo = tasks.filter(t => !t.done)
