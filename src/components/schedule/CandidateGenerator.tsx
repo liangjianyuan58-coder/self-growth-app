@@ -32,12 +32,31 @@ export default function CandidateGenerator() {
 
   async function copy() {
     const text = buildCopyText(candidates)
+
+    // 1. Clipboard API（HTTPS + 対応ブラウザ）
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2500)
+        return
+      } catch { /* フォールバックへ */ }
+    }
+
+    // 2. execCommand フォールバック（iOS Safari など）
+    const el = document.createElement('textarea')
+    el.value = text
+    // 画面外に置いてスクロールさせない
+    el.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;'
+    document.body.appendChild(el)
+    el.focus()
+    el.setSelectionRange(0, el.value.length) // iOS 用
     try {
-      await navigator.clipboard.writeText(text)
+      document.execCommand('copy')
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      alert(text)
+      setTimeout(() => setCopied(false), 2500)
+    } finally {
+      document.body.removeChild(el)
     }
   }
 
@@ -77,8 +96,18 @@ export default function CandidateGenerator() {
           </button>
 
           <div className="preview">
-            <p className="preview-label">コピー内容プレビュー</p>
-            <pre className="preview-text">{buildCopyText(candidates)}</pre>
+            <p className="preview-label">
+              コピー内容プレビュー
+              <span className="preview-hint">（長押し or タップで全選択）</span>
+            </p>
+            <textarea
+              className="preview-text"
+              readOnly
+              rows={candidates.length + 3}
+              value={buildCopyText(candidates)}
+              onClick={e => (e.target as HTMLTextAreaElement).select()}
+              onFocus={e => e.target.select()}
+            />
           </div>
         </>
       )}
@@ -112,13 +141,24 @@ export default function CandidateGenerator() {
         }
         .copy-btn:active { background: #ccfbf1; }
         .preview { margin-top: 14px; }
-        .preview-label { margin: 0 0 6px; font-size: 11px; color: var(--color-muted); }
-        .preview-text {
-          margin: 0; padding: 12px; border-radius: 10px;
-          background: var(--color-bg-subtle); border: 1px solid var(--color-border);
-          font-size: 13px; line-height: 1.8; white-space: pre-wrap; font-family: inherit;
-          color: var(--color-text-sub);
+        .preview-label {
+          margin: 0 0 6px; font-size: 11px; color: var(--color-muted);
+          display: flex; align-items: center; gap: 6px;
         }
+        .preview-hint {
+          font-size: 10px; color: var(--color-muted); opacity: .7;
+        }
+        .preview-text {
+          display: block; width: 100%; margin: 0; padding: 12px;
+          border-radius: 10px; box-sizing: border-box;
+          background: var(--color-bg-subtle); border: 1px solid var(--color-border);
+          font-size: 13px; line-height: 1.8; white-space: pre-wrap;
+          font-family: inherit; color: var(--color-text-sub);
+          resize: none; outline: none; cursor: text;
+          /* タップで全選択しやすくする */
+          -webkit-user-select: all; user-select: all;
+        }
+        .preview-text:focus { border-color: #0d9488; }
       `}</style>
     </section>
   )
