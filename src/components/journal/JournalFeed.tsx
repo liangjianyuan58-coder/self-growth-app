@@ -43,13 +43,22 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 const MOOD_EMOJI = ['', '😔', '😕', '😐', '🙂', '😄']
 
+const TABS = [
+  { key: '',        label: 'すべて' },
+  { key: 'journal', label: '日記' },
+  { key: 'money',   label: '支出' },
+  { key: 'input',   label: 'インプット' },
+  { key: 'goal',    label: '目標' },
+]
+
 interface Props {
   refreshKey?: number
 }
 
 export default function JournalFeed({ refreshKey = 0 }: Props) {
-  const [journals, setJournals] = useState<Journal[]>([])
-  const [loading,  setLoading]  = useState(true)
+  const [journals, setJournals]   = useState<Journal[]>([])
+  const [loading,  setLoading]    = useState(true)
+  const [activeTab, setActiveTab] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -61,76 +70,128 @@ export default function JournalFeed({ refreshKey = 0 }: Props) {
 
   useEffect(() => { load() }, [load, refreshKey])
 
+  const filtered = activeTab
+    ? journals.filter(j => (j.category ?? 'journal') === activeTab)
+    : journals
+
   if (loading) return <div className="feed-loading">読み込み中…</div>
-  if (journals.length === 0) return <div className="feed-empty">まだログがありません</div>
 
   return (
-    <div className="feed">
-      {journals.map(j => (
-        <article key={j.id} className="entry">
-          <div className="entry-meta">
-            <span className="entry-cat" data-cat={j.category ?? 'journal'}>
-              {CATEGORY_LABEL[j.category ?? 'journal']}
-            </span>
-            <span className="entry-date">
-              {new Date(j.created_at).toLocaleString('ja-JP', {
-                month: 'numeric', day: 'numeric',
-                hour: '2-digit', minute: '2-digit',
-              })}
-            </span>
-            {j.mood && <span className="entry-mood">{MOOD_EMOJI[j.mood]}</span>}
-          </div>
+    <div>
+      {/* カテゴリフィルタータブ */}
+      <div className="tabs">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            className={`tab ${activeTab === tab.key ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-          <p className="entry-body">{j.body}</p>
-
-          {/* money サブ情報 */}
-          {j.category === 'money' && (() => {
-            const m = j.metadata as MoneyMetadata
-            return m.amount ? (
-              <div className="entry-money">
-                <span className="money-amount">¥{m.amount.toLocaleString()}</span>
-                <span className="money-cat">{m.expense_category}</span>
+      {filtered.length === 0 ? (
+        <div className="feed-empty">
+          {activeTab ? `${CATEGORY_LABEL[activeTab]}のログはありません` : 'まだログがありません'}
+        </div>
+      ) : (
+        <div className="feed">
+          {filtered.map(j => (
+            <article key={j.id} className="entry">
+              <div className="entry-meta">
+                <span className="entry-cat" data-cat={j.category ?? 'journal'}>
+                  {CATEGORY_LABEL[j.category ?? 'journal']}
+                </span>
+                <span className="entry-date">
+                  {new Date(j.created_at).toLocaleString('ja-JP', {
+                    month: 'numeric', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  })}
+                </span>
+                {j.mood && <span className="entry-mood">{MOOD_EMOJI[j.mood]}</span>}
               </div>
-            ) : null
-          })()}
 
-          {/* input サブ情報 */}
-          {j.category === 'input' && (() => {
-            const m = j.metadata as InputMetadata
-            if (!m.title && !m.output_draft) return null
-            return (
-              <div className="entry-input-wrap">
-                {m.title && (
-                  <div className="entry-input">
-                    <span className="input-type">{m.source_type}</span>
-                    <span className="input-title">『{m.title}』</span>
-                  </div>
-                )}
-                {m.highlight && (
-                  <p className="input-highlight">{m.highlight}</p>
-                )}
-                {m.output_draft && (
-                  <div className="output-draft">
-                    <div className="draft-head">
-                      <span className="draft-label">発信草稿</span>
-                      <CopyButton text={m.output_draft} />
-                    </div>
-                    <p className="draft-text">{m.output_draft}</p>
-                  </div>
-                )}
-              </div>
-            )
-          })()}
+              <p className="entry-body">{j.body}</p>
 
-          {j.tags.length > 0 && (
-            <div className="entry-tags">
-              {j.tags.map(t => <span key={t} className="etag">#{t}</span>)}
-            </div>
-          )}
-        </article>
-      ))}
+              {/* money サブ情報 */}
+              {j.category === 'money' && (() => {
+                const m = j.metadata as MoneyMetadata
+                return m.amount ? (
+                  <div className="entry-money">
+                    <span className="money-amount">¥{m.amount.toLocaleString()}</span>
+                    <span className="money-cat">{m.expense_category}</span>
+                  </div>
+                ) : null
+              })()}
+
+              {/* input サブ情報 */}
+              {j.category === 'input' && (() => {
+                const m = j.metadata as InputMetadata
+                if (!m.title && !m.output_draft) return null
+                return (
+                  <div className="entry-input-wrap">
+                    {m.title && (
+                      <div className="entry-input">
+                        <span className="input-type">{m.source_type}</span>
+                        <span className="input-title">『{m.title}』</span>
+                      </div>
+                    )}
+                    {m.highlight && (
+                      <p className="input-highlight">{m.highlight}</p>
+                    )}
+                    {m.output_draft && (
+                      <div className="output-draft">
+                        <div className="draft-head">
+                          <span className="draft-label">発信草稿</span>
+                          <CopyButton text={m.output_draft} />
+                        </div>
+                        <p className="draft-text">{m.output_draft}</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {j.tags.length > 0 && (
+                <div className="entry-tags">
+                  {j.tags.map(t => <span key={t} className="etag">#{t}</span>)}
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
 
       <style jsx>{`
+        .tabs {
+          display: flex;
+          gap: 6px;
+          margin-bottom: 14px;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          padding-bottom: 2px;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab {
+          flex-shrink: 0;
+          padding: 5px 14px;
+          border-radius: 20px;
+          border: 1.5px solid var(--color-border, #e5e7eb);
+          background: transparent;
+          color: var(--color-muted, #9ca3af);
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all .15s;
+          white-space: nowrap;
+        }
+        .tab.active {
+          background: var(--color-accent, #7c6af7);
+          border-color: var(--color-accent, #7c6af7);
+          color: #fff;
+        }
         .feed { display: flex; flex-direction: column; gap: 12px; }
         .feed-loading, .feed-empty {
           text-align: center;
