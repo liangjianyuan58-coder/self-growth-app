@@ -9,7 +9,8 @@ export async function GET() {
     .from('goals')
     .select('*')
     .eq('user_id', USER_ID)
-    .order('created_at', { ascending: false })
+    .neq('status', 'archived')
+    .order('created_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ goals: data })
@@ -17,8 +18,16 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const supabase = createAdminClient()
-  const { title, description, due_date } = await req.json() as {
-    title: string; description?: string; due_date?: string
+  const {
+    title, description, due_date,
+    parent_id, period_type, period_label,
+  } = await req.json() as {
+    title: string
+    description?: string
+    due_date?: string
+    parent_id?: string
+    period_type?: string
+    period_label?: string
   }
 
   if (!title?.trim()) {
@@ -28,10 +37,13 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('goals')
     .insert({
-      user_id:     USER_ID,
-      title:       title.trim(),
-      description: description?.trim() || null,
-      due_date:    due_date || null,
+      user_id:      USER_ID,
+      title:        title.trim(),
+      description:  description?.trim()  || null,
+      due_date:     due_date             || null,
+      parent_id:    parent_id            || null,
+      period_type:  period_type          || 'big',
+      period_label: period_label         || null,
     })
     .select()
     .single()
@@ -42,17 +54,25 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const supabase = createAdminClient()
-  const { id, title, description, due_date, status } = await req.json() as {
-    id: string; title?: string; description?: string; due_date?: string | null; status?: string
+  const {
+    id, title, description, due_date, status, period_label,
+  } = await req.json() as {
+    id: string
+    title?: string
+    description?: string
+    due_date?: string | null
+    status?: string
+    period_label?: string | null
   }
 
   if (!id) return NextResponse.json({ error: 'id は必須です' }, { status: 400 })
 
   const patch: Record<string, unknown> = {}
-  if (title       !== undefined) patch.title       = title.trim()
-  if (description !== undefined) patch.description = description?.trim() || null
-  if (due_date    !== undefined) patch.due_date    = due_date || null
-  if (status      !== undefined) patch.status      = status
+  if (title        !== undefined) patch.title        = title.trim()
+  if (description  !== undefined) patch.description  = description?.trim() || null
+  if (due_date     !== undefined) patch.due_date     = due_date || null
+  if (status       !== undefined) patch.status       = status
+  if (period_label !== undefined) patch.period_label = period_label || null
 
   const { data, error } = await supabase
     .from('goals')
@@ -70,6 +90,7 @@ export async function DELETE(req: NextRequest) {
   const supabase = createAdminClient()
   const { id } = await req.json() as { id: string }
 
+  // ON DELETE CASCADE で子孫も自動削除される
   const { error } = await supabase
     .from('goals')
     .delete()

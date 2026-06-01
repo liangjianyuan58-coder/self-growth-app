@@ -57,6 +57,8 @@ export interface AnalysisResult {
   auto_events: AutoEvent[]   // 自動追加する予定
 }
 
+export type GoalPeriodType = 'big' | 'annual' | 'monthly' | 'weekly' | 'daily'
+
 export interface Goal {
   id: string
   user_id: string
@@ -64,6 +66,9 @@ export interface Goal {
   description: string | null
   due_date: string | null
   status: 'active' | 'done' | 'archived'
+  parent_id: string | null
+  period_type: GoalPeriodType
+  period_label: string | null
   created_at: string
   updated_at?: string
 }
