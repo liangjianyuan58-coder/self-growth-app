@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import type { CandidateDate } from '@/types'
+import EventModal from './EventModal'
 
 const NUMBERS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩']
 
@@ -13,16 +14,26 @@ function buildCopyText(candidates: CandidateDate[]): string {
   return ['【候補日】', ...lines, '', 'ご都合の良い日時をお知らせください🙏'].join('\n')
 }
 
+interface RegisterTarget {
+  date: string
+  startTime: string
+  endTime: string
+  dayLabel: string
+}
+
 export default function CandidateGenerator() {
   const [candidates, setCandidates] = useState<CandidateDate[]>([])
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [empty, setEmpty] = useState(false)
+  const [registerTarget, setRegisterTarget] = useState<RegisterTarget | null>(null)
+  const [registered, setRegistered] = useState<Set<string>>(new Set())
 
   async function generate() {
     setLoading(true)
     setCopied(false)
     setEmpty(false)
+    setRegistered(new Set())
     const res = await fetch('/api/schedule/candidates?count=5')
     const { candidates: data } = await res.json()
     setCandidates(data ?? [])
@@ -33,7 +44,6 @@ export default function CandidateGenerator() {
   async function copy() {
     const text = buildCopyText(candidates)
 
-    // 1. Clipboard API（HTTPS + 対応ブラウザ）
     if (navigator.clipboard && window.isSecureContext) {
       try {
         await navigator.clipboard.writeText(text)
@@ -43,14 +53,12 @@ export default function CandidateGenerator() {
       } catch { /* フォールバックへ */ }
     }
 
-    // 2. execCommand フォールバック（iOS Safari など）
     const el = document.createElement('textarea')
     el.value = text
-    // 画面外に置いてスクロールさせない
     el.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;'
     document.body.appendChild(el)
     el.focus()
-    el.setSelectionRange(0, el.value.length) // iOS 用
+    el.setSelectionRange(0, el.value.length)
     try {
       document.execCommand('copy')
       setCopied(true)
@@ -60,10 +68,26 @@ export default function CandidateGenerator() {
     }
   }
 
+  function openRegister(c: CandidateDate) {
+    setRegisterTarget({
+      date: c.date,
+      startTime: c.ranges[0]?.from ?? '',
+      endTime:   c.ranges[0]?.to   ?? '',
+      dayLabel:  c.dayLabel,
+    })
+  }
+
+  function onModalSave() {
+    if (registerTarget) {
+      setRegistered(prev => new Set([...prev, registerTarget.date]))
+    }
+    setRegisterTarget(null)
+  }
+
   return (
     <section className="card">
       <h2 className="section-title">候補日を出す</h2>
-      <p className="section-desc">空き時間設定から直近5日分を生成</p>
+      <p className="section-desc">空き時間設定・既存予定を加味して直近5日分を生成</p>
 
       <button className="gen-btn" onClick={generate} disabled={loading}>
         {loading ? '生成中…' : '📅 候補日を生成'}
@@ -87,6 +111,13 @@ export default function CandidateGenerator() {
                     ))}
                   </div>
                 </div>
+                <button
+                  className={`reg-btn ${registered.has(c.date) ? 'done' : ''}`}
+                  onClick={() => openRegister(c)}
+                  disabled={registered.has(c.date)}
+                >
+                  {registered.has(c.date) ? '登録済み ✓' : '登録'}
+                </button>
               </div>
             ))}
           </div>
@@ -112,6 +143,17 @@ export default function CandidateGenerator() {
         </>
       )}
 
+      {registerTarget && (
+        <EventModal
+          event={null}
+          defaultDate={registerTarget.date}
+          defaultStartTime={registerTarget.startTime}
+          defaultEndTime={registerTarget.endTime}
+          onSave={onModalSave}
+          onClose={() => setRegisterTarget(null)}
+        />
+      )}
+
       <style jsx>{`
         .card { background: var(--color-bg-card); border-radius: 14px; padding: 20px; border: 1px solid var(--color-border); }
         .section-title { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
@@ -124,9 +166,9 @@ export default function CandidateGenerator() {
         .gen-btn:disabled { opacity: .5; cursor: default; }
         .empty-msg { margin: 14px 0 0; font-size: 13px; color: var(--color-muted); text-align: center; }
         .candidates { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
-        .row { display: flex; align-items: flex-start; gap: 12px; }
-        .num { font-size: 18px; flex-shrink: 0; color: #0d9488; font-weight: 700; margin-top: 1px; }
-        .info { display: flex; flex-direction: column; gap: 4px; }
+        .row { display: flex; align-items: center; gap: 12px; }
+        .num { font-size: 18px; flex-shrink: 0; color: #0d9488; font-weight: 700; }
+        .info { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
         .day-label { font-size: 15px; font-weight: 700; }
         .tags { display: flex; gap: 6px; flex-wrap: wrap; }
         .tag {
@@ -134,6 +176,14 @@ export default function CandidateGenerator() {
           background: #ccfbf1; color: #0d9488;
         }
         @media (prefers-color-scheme: dark) { .tag { background: #042f2e; color: #2dd4bf; } }
+        .reg-btn {
+          flex-shrink: 0; padding: 6px 12px; border-radius: 8px;
+          border: 1.5px solid #0d9488; background: transparent;
+          color: #0d9488; font-size: 12px; font-weight: 700; cursor: pointer;
+          white-space: nowrap; transition: background .15s, color .15s;
+        }
+        .reg-btn:hover:not(:disabled) { background: #0d9488; color: #fff; }
+        .reg-btn.done { border-color: #10b981; color: #10b981; cursor: default; }
         .copy-btn {
           margin-top: 16px; width: 100%; padding: 10px; border-radius: 10px;
           border: 1.5px solid #0d9488; background: transparent;
@@ -145,9 +195,7 @@ export default function CandidateGenerator() {
           margin: 0 0 6px; font-size: 11px; color: var(--color-muted);
           display: flex; align-items: center; gap: 6px;
         }
-        .preview-hint {
-          font-size: 10px; color: var(--color-muted); opacity: .7;
-        }
+        .preview-hint { font-size: 10px; color: var(--color-muted); opacity: .7; }
         .preview-text {
           display: block; width: 100%; margin: 0; padding: 12px;
           border-radius: 10px; box-sizing: border-box;
@@ -155,7 +203,6 @@ export default function CandidateGenerator() {
           font-size: 13px; line-height: 1.8; white-space: pre-wrap;
           font-family: inherit; color: var(--color-text-sub);
           resize: none; outline: none; cursor: text;
-          /* タップで全選択しやすくする */
           -webkit-user-select: all; user-select: all;
         }
         .preview-text:focus { border-color: #0d9488; }
