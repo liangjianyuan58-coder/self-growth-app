@@ -122,6 +122,7 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
         created_at      timestamptz default now(),
         updated_at      timestamptz default now()
       );
+      alter table schedule_events add column if not exists google_event_id text;
       alter table schedule_events disable row level security;
       create index if not exists idx_schedule_events_google_id
         on schedule_events(google_event_id) where google_event_id is not null;
