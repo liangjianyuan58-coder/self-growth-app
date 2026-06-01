@@ -1,11 +1,9 @@
 // src/app/api/setup/route.ts
-// 全マイグレーションを一括実行するセットアップエンドポイント
-// DATABASE_URL が必要（Supabase → Settings → Database → Connection String）
+// Supabase Management API 経由でマイグレーションを実行
+// DATABASE_URL 不要 — SUPABASE_ACCESS_TOKEN だけ追加すればOK
 
 import { NextResponse } from 'next/server'
-import postgres from 'postgres'
 
-// すべて冪等（IF NOT EXISTS / ADD COLUMN IF NOT EXISTS）なので何度実行しても安全
 const MIGRATIONS: Array<{ name: string; sql: string }> = [
   {
     name: '01_base_extensions',
@@ -52,9 +50,7 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
       );
       alter table goals disable row level security;
       do $$ begin
-        if not exists (
-          select 1 from pg_trigger where tgname = 'goals_updated_at'
-        ) then
+        if not exists (select 1 from pg_trigger where tgname = 'goals_updated_at') then
           create trigger goals_updated_at
             before update on goals
             for each row execute procedure handle_updated_at();
@@ -115,24 +111,22 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
     name: '09_schedule_events',
     sql: `
       create table if not exists schedule_events (
-        id               uuid primary key default gen_random_uuid(),
-        user_id          uuid not null,
-        title            text not null,
-        event_date       date not null,
-        start_time       time,
-        end_time         time,
-        note             text,
-        google_event_id  text,
-        created_at       timestamptz default now(),
-        updated_at       timestamptz default now()
+        id              uuid primary key default gen_random_uuid(),
+        user_id         uuid not null,
+        title           text not null,
+        event_date      date not null,
+        start_time      time,
+        end_time        time,
+        note            text,
+        google_event_id text,
+        created_at      timestamptz default now(),
+        updated_at      timestamptz default now()
       );
       alter table schedule_events disable row level security;
       create index if not exists idx_schedule_events_google_id
         on schedule_events(google_event_id) where google_event_id is not null;
       do $$ begin
-        if not exists (
-          select 1 from pg_trigger where tgname = 'trg_schedule_events_ts'
-        ) then
+        if not exists (select 1 from pg_trigger where tgname = 'trg_schedule_events_ts') then
           create trigger trg_schedule_events_ts
             before update on schedule_events
             for each row execute function handle_updated_at();
@@ -155,9 +149,7 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
       );
       alter table tasks disable row level security;
       do $$ begin
-        if not exists (
-          select 1 from pg_trigger where tgname = 'trg_tasks_ts'
-        ) then
+        if not exists (select 1 from pg_trigger where tgname = 'trg_tasks_ts') then
           create trigger trg_tasks_ts
             before update on tasks
             for each row execute function handle_updated_at();
@@ -177,9 +169,7 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
       );
       alter table user_settings disable row level security;
       do $$ begin
-        if not exists (
-          select 1 from pg_trigger where tgname = 'user_settings_updated_at'
-        ) then
+        if not exists (select 1 from pg_trigger where tgname = 'user_settings_updated_at') then
           create trigger user_settings_updated_at
             before update on user_settings
             for each row execute procedure handle_updated_at();
@@ -189,42 +179,69 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
   },
 ]
 
+function getProjectRef(): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  return url.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? ''
+}
+
+async function execSQL(
+  projectRef: string,
+  token: string,
+  sql: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(
+    `https://api.supabase.com/v1/projects/${projectRef}/database/query`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ query: sql }),
+    },
+  )
+  if (res.ok) return { ok: true }
+  const data = await res.json() as { message?: string }
+  return { ok: false, error: data.message ?? `HTTP ${res.status}` }
+}
+
 export async function POST() {
-  const dbUrl = process.env.DATABASE_URL
-  if (!dbUrl) {
+  const token      = process.env.SUPABASE_ACCESS_TOKEN
+  const projectRef = getProjectRef()
+
+  if (!token) {
     return NextResponse.json(
-      { error: 'DATABASE_URL が設定されていません。Vercel の環境変数に追加してください。' },
-      { status: 500 }
+      { error: 'SUPABASE_ACCESS_TOKEN が設定されていません。Vercel の環境変数に追加してください。' },
+      { status: 500 },
+    )
+  }
+  if (!projectRef) {
+    return NextResponse.json(
+      { error: 'NEXT_PUBLIC_SUPABASE_URL から projectRef を取得できませんでした。' },
+      { status: 500 },
     )
   }
 
-  const sql = postgres(dbUrl, { ssl: 'require', max: 1 })
   const results: Array<{ name: string; ok: boolean; error?: string }> = []
 
   for (const m of MIGRATIONS) {
-    try {
-      await sql.unsafe(m.sql)
-      results.push({ name: m.name, ok: true })
-    } catch (err) {
-      results.push({ name: m.name, ok: false, error: String(err) })
-    }
+    const result = await execSQL(projectRef, token, m.sql)
+    results.push({ name: m.name, ...result })
   }
-
-  await sql.end()
 
   const failed = results.filter(r => !r.ok)
   return NextResponse.json(
     { results, success: failed.length === 0, failed: failed.length },
-    { status: failed.length > 0 ? 207 : 200 }
+    { status: failed.length > 0 ? 207 : 200 },
   )
 }
 
 export async function GET() {
-  const dbUrl = process.env.DATABASE_URL
+  const token = process.env.SUPABASE_ACCESS_TOKEN
   return NextResponse.json({
-    ready: !!dbUrl,
-    message: dbUrl
-      ? 'DATABASE_URL が設定されています。POST リクエストでマイグレーションを実行できます。'
-      : 'DATABASE_URL が未設定です。Supabase → Settings → Database → Connection String (URI) をコピーして Vercel 環境変数に追加してください。',
+    ready: !!token,
+    message: token
+      ? 'SUPABASE_ACCESS_TOKEN が設定されています。'
+      : 'SUPABASE_ACCESS_TOKEN が未設定です。Supabase → Account → Access Tokens でトークンを作成して Vercel 環境変数に追加してください。',
   })
 }

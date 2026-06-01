@@ -38,24 +38,24 @@ export default function SetupPage() {
       <h1 className="title">⚙️ セットアップ</h1>
       <p className="sub">Supabase のデータベーステーブルを作成します。<br />初回または未適用のマイグレーションがある場合に実行してください。</p>
 
-      {/* Step 1: DATABASE_URL 確認 */}
+      {/* Step 1: SUPABASE_ACCESS_TOKEN 確認 */}
       <div className="card">
-        <p className="card-title">STEP 1 — DATABASE_URL の確認</p>
+        <p className="card-title">STEP 1 — SUPABASE_ACCESS_TOKEN の確認</p>
         <p className="card-body">
           まだ設定していない場合:
         </p>
         <ol className="steps">
-          <li>Supabase ダッシュボード → <strong>Settings</strong> → <strong>Database</strong></li>
-          <li><strong>Connection String</strong> セクションの <strong>URI</strong> をコピー</li>
+          <li>Supabase ダッシュボード → 右上アイコン → <strong>Account</strong> → <strong>Access Tokens</strong></li>
+          <li><strong>Generate new token</strong> でトークンを作成・コピー</li>
           <li>Vercel → プロジェクト → <strong>Settings</strong> → <strong>Environment Variables</strong></li>
-          <li><code>DATABASE_URL</code> として貼り付けて保存</li>
+          <li><code>SUPABASE_ACCESS_TOKEN</code> として貼り付けて保存</li>
           <li>Vercel で <strong>Redeploy</strong></li>
         </ol>
         <button className="check-btn" onClick={checkReady} disabled={checking}>
           {checking ? '確認中…' : '設定を確認する'}
         </button>
-        {dbReady === true  && <p className="ok">✅ DATABASE_URL が設定されています</p>}
-        {dbReady === false && <p className="ng">❌ DATABASE_URL が未設定です。上の手順で設定してください。</p>}
+        {dbReady === true  && <p className="ok">✅ SUPABASE_ACCESS_TOKEN が設定されています</p>}
+        {dbReady === false && <p className="ng">❌ SUPABASE_ACCESS_TOKEN が未設定です。上の手順で設定してください。</p>}
       </div>
 
       {/* Step 2: 実行 */}
