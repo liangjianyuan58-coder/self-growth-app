@@ -1,0 +1,230 @@
+// src/app/api/setup/route.ts
+// 全マイグレーションを一括実行するセットアップエンドポイント
+// DATABASE_URL が必要（Supabase → Settings → Database → Connection String）
+
+import { NextResponse } from 'next/server'
+import postgres from 'postgres'
+
+// すべて冪等（IF NOT EXISTS / ADD COLUMN IF NOT EXISTS）なので何度実行しても安全
+const MIGRATIONS: Array<{ name: string; sql: string }> = [
+  {
+    name: '01_base_extensions',
+    sql: `create extension if not exists "pgcrypto";`,
+  },
+  {
+    name: '02_handle_updated_at_fn',
+    sql: `
+      create or replace function handle_updated_at()
+      returns trigger language plpgsql as $$
+      begin new.updated_at = now(); return new; end;
+      $$;
+    `,
+  },
+  {
+    name: '03_journals',
+    sql: `
+      create table if not exists journals (
+        id         uuid primary key default gen_random_uuid(),
+        user_id    uuid not null,
+        body       text not null,
+        mood       smallint check (mood between 1 and 5),
+        tags       text[]  default '{}',
+        category   text,
+        metadata   jsonb   default '{}',
+        created_at timestamptz default now(),
+        updated_at timestamptz default now()
+      );
+      alter table journals disable row level security;
+    `,
+  },
+  {
+    name: '04_goals',
+    sql: `
+      create table if not exists goals (
+        id           uuid primary key default gen_random_uuid(),
+        user_id      uuid not null,
+        title        text not null,
+        description  text,
+        due_date     date,
+        status       text default 'active' check (status in ('active','done','archived')),
+        created_at   timestamptz default now(),
+        updated_at   timestamptz default now()
+      );
+      alter table goals disable row level security;
+      do $$ begin
+        if not exists (
+          select 1 from pg_trigger where tgname = 'goals_updated_at'
+        ) then
+          create trigger goals_updated_at
+            before update on goals
+            for each row execute procedure handle_updated_at();
+        end if;
+      end $$;
+    `,
+  },
+  {
+    name: '05_goals_hierarchy',
+    sql: `
+      alter table goals add column if not exists parent_id    uuid references goals(id) on delete cascade;
+      alter table goals add column if not exists period_type  text default 'big'
+        check (period_type in ('big','annual','monthly','weekly','daily'));
+      alter table goals add column if not exists period_label text;
+    `,
+  },
+  {
+    name: '06_weekly_reviews',
+    sql: `
+      create table if not exists weekly_reviews (
+        id           uuid primary key default gen_random_uuid(),
+        user_id      uuid not null,
+        week_start   date not null,
+        summary      text,
+        patterns     jsonb default '{}',
+        generated_at timestamptz default now(),
+        unique (user_id, week_start)
+      );
+      alter table weekly_reviews disable row level security;
+    `,
+  },
+  {
+    name: '07_schedule_settings',
+    sql: `
+      create table if not exists schedule_settings (
+        user_id         uuid primary key,
+        weekly_template jsonb not null default '{}',
+        updated_at      timestamptz default now()
+      );
+      alter table schedule_settings disable row level security;
+    `,
+  },
+  {
+    name: '08_schedule_blocks',
+    sql: `
+      create table if not exists schedule_blocks (
+        id           uuid primary key default gen_random_uuid(),
+        user_id      uuid not null,
+        blocked_date date not null,
+        note         text,
+        created_at   timestamptz default now(),
+        unique(user_id, blocked_date)
+      );
+      alter table schedule_blocks disable row level security;
+    `,
+  },
+  {
+    name: '09_schedule_events',
+    sql: `
+      create table if not exists schedule_events (
+        id               uuid primary key default gen_random_uuid(),
+        user_id          uuid not null,
+        title            text not null,
+        event_date       date not null,
+        start_time       time,
+        end_time         time,
+        note             text,
+        google_event_id  text,
+        created_at       timestamptz default now(),
+        updated_at       timestamptz default now()
+      );
+      alter table schedule_events disable row level security;
+      create index if not exists idx_schedule_events_google_id
+        on schedule_events(google_event_id) where google_event_id is not null;
+      do $$ begin
+        if not exists (
+          select 1 from pg_trigger where tgname = 'trg_schedule_events_ts'
+        ) then
+          create trigger trg_schedule_events_ts
+            before update on schedule_events
+            for each row execute function handle_updated_at();
+        end if;
+      end $$;
+    `,
+  },
+  {
+    name: '10_tasks',
+    sql: `
+      create table if not exists tasks (
+        id         uuid primary key default gen_random_uuid(),
+        user_id    uuid not null,
+        title      text not null,
+        note       text,
+        done       boolean not null default false,
+        done_at    timestamptz,
+        created_at timestamptz default now(),
+        updated_at timestamptz default now()
+      );
+      alter table tasks disable row level security;
+      do $$ begin
+        if not exists (
+          select 1 from pg_trigger where tgname = 'trg_tasks_ts'
+        ) then
+          create trigger trg_tasks_ts
+            before update on tasks
+            for each row execute function handle_updated_at();
+        end if;
+      end $$;
+    `,
+  },
+  {
+    name: '11_user_settings',
+    sql: `
+      create table if not exists user_settings (
+        user_id         uuid primary key,
+        current_balance integer default 0,
+        monthly_budget  integer default 100000,
+        weekly_budget   integer default 25000,
+        updated_at      timestamptz default now()
+      );
+      alter table user_settings disable row level security;
+      do $$ begin
+        if not exists (
+          select 1 from pg_trigger where tgname = 'user_settings_updated_at'
+        ) then
+          create trigger user_settings_updated_at
+            before update on user_settings
+            for each row execute procedure handle_updated_at();
+        end if;
+      end $$;
+    `,
+  },
+]
+
+export async function POST() {
+  const dbUrl = process.env.DATABASE_URL
+  if (!dbUrl) {
+    return NextResponse.json(
+      { error: 'DATABASE_URL が設定されていません。Vercel の環境変数に追加してください。' },
+      { status: 500 }
+    )
+  }
+
+  const sql = postgres(dbUrl, { ssl: 'require', max: 1 })
+  const results: Array<{ name: string; ok: boolean; error?: string }> = []
+
+  for (const m of MIGRATIONS) {
+    try {
+      await sql.unsafe(m.sql)
+      results.push({ name: m.name, ok: true })
+    } catch (err) {
+      results.push({ name: m.name, ok: false, error: String(err) })
+    }
+  }
+
+  await sql.end()
+
+  const failed = results.filter(r => !r.ok)
+  return NextResponse.json(
+    { results, success: failed.length === 0, failed: failed.length },
+    { status: failed.length > 0 ? 207 : 200 }
+  )
+}
+
+export async function GET() {
+  const dbUrl = process.env.DATABASE_URL
+  return NextResponse.json({
+    ready: !!dbUrl,
+    message: dbUrl
+      ? 'DATABASE_URL が設定されています。POST リクエストでマイグレーションを実行できます。'
+      : 'DATABASE_URL が未設定です。Supabase → Settings → Database → Connection String (URI) をコピーして Vercel 環境変数に追加してください。',
+  })
+}
