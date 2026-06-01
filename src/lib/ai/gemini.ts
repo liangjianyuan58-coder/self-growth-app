@@ -9,7 +9,7 @@ const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 // JSON モードで確実に JSON を返させる
 function getModel() {
   return genai.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.0-flash',
     generationConfig: { responseMimeType: 'application/json' },
   })
 }
