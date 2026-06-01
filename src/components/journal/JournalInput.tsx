@@ -24,6 +24,7 @@ export default function JournalInput({ onSaved }: Props) {
   const [analysis, setAnalysis]     = useState<AnalysisResult | null>(null)
   const [addedTasks, setAddedTasks] = useState<string[]>([])
   const [addedEvents, setAddedEvents] = useState<string[]>([])
+  const [aiError, setAiError]       = useState<string | null>(null)
   const textareaRef                 = useRef<HTMLTextAreaElement>(null)
 
   // テキストエリアの高さ自動調整
@@ -42,6 +43,7 @@ export default function JournalInput({ onSaved }: Props) {
     setAnalysis(null)
     setAddedTasks([])
     setAddedEvents([])
+    setAiError(null)
 
     try {
       const res = await fetch('/api/journal', {
@@ -55,11 +57,12 @@ export default function JournalInput({ onSaved }: Props) {
       setAnalysis(json.analysis as AnalysisResult)
       setAddedTasks(json.addedTasks ?? [])
       setAddedEvents(json.addedEvents ?? [])
+      setAiError(json.aiError ?? null)
       setStatus('done')
       setBody('')
       onSaved?.()
 
-      setTimeout(() => { setStatus('idle'); setAnalysis(null); setAddedTasks([]); setAddedEvents([]) }, 5000)
+      setTimeout(() => { setStatus('idle'); setAnalysis(null); setAddedTasks([]); setAddedEvents([]); setAiError(null) }, 8000)
     } catch {
       setStatus('error')
       setTimeout(() => setStatus('idle'), 2000)
@@ -103,8 +106,16 @@ export default function JournalInput({ onSaved }: Props) {
         </div>
       </form>
 
+      {/* AIエラーバナー */}
+      {aiError && (
+        <div className="ai-error-banner">
+          ⚠️ AI分類エラー（日記として保存されました）<br />
+          <span className="ai-error-detail">{aiError}</span>
+        </div>
+      )}
+
       {/* AI分析結果バナー */}
-      {analysis && (
+      {analysis && !aiError && (
         <div className="analysis-banner">
           <div className="analysis-row">
             <span className="category-badge" data-cat={analysis.category}>
@@ -223,6 +234,23 @@ export default function JournalInput({ onSaved }: Props) {
           animation: spin .6s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* AIエラーバナー */
+        .ai-error-banner {
+          margin-top: 12px;
+          padding: 10px 14px;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 10px;
+          font-size: 13px;
+          color: #b91c1c;
+          line-height: 1.6;
+        }
+        .ai-error-detail {
+          font-size: 11px;
+          color: #ef4444;
+          word-break: break-all;
+        }
 
         /* 分析バナー */
         .analysis-banner {

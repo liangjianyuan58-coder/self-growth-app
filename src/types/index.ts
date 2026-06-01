@@ -55,6 +55,7 @@ export interface AnalysisResult {
   summary_line: string       // 1行要約（週次レビュー用）
   auto_tasks: string[]       // 自動追加するタスク
   auto_events: AutoEvent[]   // 自動追加する予定
+  _aiError?: string          // AI失敗時のエラーメッセージ
 }
 
 export type GoalPeriodType = 'big' | 'annual' | 'monthly' | 'weekly' | 'daily'

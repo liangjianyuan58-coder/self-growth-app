@@ -80,7 +80,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ journal: data, analysis, addedTasks, addedEvents })
+  const aiError = (analysis as { _aiError?: string })._aiError
+  return NextResponse.json({ journal: data, analysis, addedTasks, addedEvents, aiError })
 }
 
 export async function GET(req: NextRequest) {
