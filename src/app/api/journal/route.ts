@@ -84,6 +84,46 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ journal: data, analysis, addedTasks, addedEvents, aiError })
 }
 
+export async function PUT(req: NextRequest) {
+  const supabase = createAdminClient()
+  const { id, category, mood, body, metadata } = await req.json()
+
+  if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
+
+  const updates: Record<string, unknown> = {}
+  if (category  !== undefined) updates.category = category
+  if (mood      !== undefined) updates.mood      = mood
+  if (body      !== undefined) updates.body      = body
+  if (metadata  !== undefined) updates.metadata  = metadata
+
+  const { data, error } = await supabase
+    .from('journals')
+    .update(updates)
+    .eq('id', id)
+    .eq('user_id', USER_ID)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ journal: data })
+}
+
+export async function DELETE(req: NextRequest) {
+  const supabase = createAdminClient()
+  const { id } = await req.json()
+
+  if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
+
+  const { error } = await supabase
+    .from('journals')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', USER_ID)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
+
 export async function GET(req: NextRequest) {
   const supabase = createAdminClient()
 
