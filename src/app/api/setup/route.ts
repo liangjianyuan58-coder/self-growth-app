@@ -178,6 +178,24 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
       end $$;
     `,
   },
+  {
+    name: '12_worksheet_answers',
+    sql: `
+      create table if not exists worksheet_answers (
+        user_id    uuid primary key,
+        answers    jsonb not null default '{}',
+        updated_at timestamptz default now()
+      );
+      alter table worksheet_answers disable row level security;
+      do $$ begin
+        if not exists (select 1 from pg_trigger where tgname = 'worksheet_answers_updated_at') then
+          create trigger worksheet_answers_updated_at
+            before update on worksheet_answers
+            for each row execute procedure handle_updated_at();
+        end if;
+      end $$;
+    `,
+  },
 ]
 
 function getProjectRef(): string {

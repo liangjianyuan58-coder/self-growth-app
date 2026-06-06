@@ -10,6 +10,7 @@ const NAV = [
   { href: '/tasks',    label: 'タスク',  icon: '✅' },
   { href: '/review',   label: 'レビュー', icon: '📊' },
   { href: '/schedule', label: '調整',    icon: '📅' },
+  { href: '/work',     label: 'ワーク',  icon: '📖' },
 ]
 
 export default function BottomNav() {
@@ -48,7 +49,7 @@ export default function BottomNav() {
           align-items: center;
           gap: 2px;
           text-decoration: none;
-          padding: 8px 10px;
+          padding: 6px 6px;
           border-radius: 8px;
           color: var(--color-muted, #9ca3af);
           transition: color .15s;
