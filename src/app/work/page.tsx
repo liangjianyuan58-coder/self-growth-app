@@ -37,22 +37,35 @@ const TYPE_COLOR: Record<string, string> = { investment: '#10b981', consumption:
 // ── 保存フック ──────────────────────────────────────────────────
 function useSaveSection(section: string) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [saved, setSaved] = useState(false)
+  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle')
 
-  function scheduleSave(data: unknown) {
+  const scheduleSave = useCallback((data: unknown) => {
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
-      await fetch('/api/worksheet', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ section, data }),
-      })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      try {
+        const res = await fetch('/api/worksheet', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ section, data }),
+        })
+        if (res.ok) {
+          setSaveState('saved')
+          setTimeout(() => setSaveState('idle'), 2000)
+        } else {
+          const json = await res.json().catch(() => ({}))
+          console.error('[worksheet] save error:', json)
+          setSaveState('error')
+          setTimeout(() => setSaveState('idle'), 4000)
+        }
+      } catch (e) {
+        console.error('[worksheet] network error:', e)
+        setSaveState('error')
+        setTimeout(() => setSaveState('idle'), 4000)
+      }
     }, 800)
-  }
+  }, [section])
 
-  return { scheduleSave, saved }
+  return { scheduleSave, saveState }
 }
 
 // ── 共通コンポーネント ───────────────────────────────────────────
@@ -119,16 +132,17 @@ function TextArea({ value, onChange, placeholder, rows = 3 }: {
   )
 }
 
-function SavedBadge({ saved }: { saved: boolean }) {
-  if (!saved) return null
-  return <span style={{ fontSize: 11, color: '#10b981', fontWeight: 600 }}>保存しました ✓</span>
+function SavedBadge({ saveState }: { saveState: 'idle' | 'saved' | 'error' }) {
+  if (saveState === 'saved') return <span style={{ fontSize: 11, color: '#10b981', fontWeight: 600 }}>保存しました ✓</span>
+  if (saveState === 'error') return <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>⚠️ 保存失敗 — /setup でテーブルを作成してください</span>
+  return null
 }
 
 // ── 各セクション ─────────────────────────────────────────────────
 
 function IntroSection({ init }: { init: Answers['intro'] }) {
   const [data, setData] = useState({ goal: '', worries: '', fears: '', ...init })
-  const { scheduleSave, saved } = useSaveSection('intro')
+  const { scheduleSave, saveState } = useSaveSection('intro')
 
   function update(key: string, val: string) {
     const next = { ...data, [key]: val }
@@ -149,7 +163,7 @@ function IntroSection({ init }: { init: Answers['intro'] }) {
         <Label>今、最も不安なことは？</Label>
         <TextArea value={data.fears} onChange={v => update('fears', v)} placeholder="一番心に引っかかっていることを正直に" rows={3} />
       </div>
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
@@ -158,7 +172,7 @@ function MoneyMindsetSection({ init }: { init: Answers['money_mindset'] }) {
   const [wishes, setWishes] = useState<Array<{ item: string; amount: string }>>(
     init?.wishes?.length ? init.wishes : Array(5).fill(null).map(() => ({ item: '', amount: '' }))
   )
-  const { scheduleSave, saved } = useSaveSection('money_mindset')
+  const { scheduleSave, saveState } = useSaveSection('money_mindset')
 
   function update(idx: number, key: 'item' | 'amount', val: string) {
     const next = wishes.map((w, i) => i === idx ? { ...w, [key]: val } : w)
@@ -193,14 +207,14 @@ function MoneyMindsetSection({ init }: { init: Answers['money_mindset'] }) {
       <button onClick={addRow} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px dashed var(--color-border)', background: 'none', color: 'var(--color-muted)', fontSize: 13, cursor: 'pointer' }}>
         + 追加
       </button>
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
 
 function ChecklistSection({ init }: { init: Answers['checklist'] }) {
   const [checked, setChecked] = useState<string[]>(init?.checked ?? [])
-  const { scheduleSave, saved } = useSaveSection('checklist')
+  const { scheduleSave, saveState } = useSaveSection('checklist')
 
   function toggle(item: string) {
     const next = checked.includes(item) ? checked.filter(c => c !== item) : [...checked, item]
@@ -219,7 +233,7 @@ function ChecklistSection({ init }: { init: Answers['checklist'] }) {
       <p style={{ fontSize: 12, color: 'var(--color-muted)', margin: 0 }}>
         {checked.length}/{CHECKLIST_ITEMS.length} できている — できていないものが今後の課題
       </p>
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
@@ -228,7 +242,7 @@ function CostBenefitSection({ init }: { init: Answers['cost_benefit'] }) {
   const [expenses, setExpenses] = useState<Array<{ item: string; type: 'investment' | 'consumption' | 'waste' | '' }>>(
     init?.expenses?.length ? init.expenses : Array(10).fill(null).map(() => ({ item: '', type: '' as const }))
   )
-  const { scheduleSave, saved } = useSaveSection('cost_benefit')
+  const { scheduleSave, saveState } = useSaveSection('cost_benefit')
 
   function update(idx: number, key: 'item' | 'type', val: string) {
     const next = expenses.map((e, i) => i === idx ? { ...e, [key]: val } : e)
@@ -266,7 +280,7 @@ function CostBenefitSection({ init }: { init: Answers['cost_benefit'] }) {
           </span>
         ))}
       </div>
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
@@ -285,7 +299,7 @@ function AffirmationSection({ init }: { init: Answers['affirmation'] }) {
     { key: 'level',        q: '今のワクワク度（10段階）と高める方法は？' },
   ]
   const [data, setData] = useState<Record<string, string>>(init ?? {})
-  const { scheduleSave, saved } = useSaveSection('affirmation')
+  const { scheduleSave, saveState } = useSaveSection('affirmation')
 
   function update(key: string, val: string) {
     const next = { ...data, [key]: val }
@@ -300,7 +314,7 @@ function AffirmationSection({ init }: { init: Answers['affirmation'] }) {
           <TextArea value={data[key] ?? ''} onChange={v => update(key, v)} rows={2} placeholder="具体的に…" />
         </div>
       ))}
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
@@ -309,7 +323,7 @@ function BeliefResetSection({ init }: { init: Answers['belief_reset'] }) {
   const [musts, setMusts] = useState<Array<{ original: string; rewritten: string }>>(
     init?.musts?.length ? init.musts : Array(5).fill(null).map(() => ({ original: '', rewritten: '' }))
   )
-  const { scheduleSave, saved } = useSaveSection('belief_reset')
+  const { scheduleSave, saveState } = useSaveSection('belief_reset')
 
   function update(idx: number, key: 'original' | 'rewritten', val: string) {
     const next = musts.map((m, i) => i === idx ? { ...m, [key]: val } : m)
@@ -334,14 +348,14 @@ function BeliefResetSection({ init }: { init: Answers['belief_reset'] }) {
           )}
         </div>
       ))}
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
 
 function VisualizationSection({ init }: { init: Answers['visualization'] }) {
   const [data, setData] = useState({ scene: '', ...init })
-  const { scheduleSave, saved } = useSaveSection('visualization')
+  const { scheduleSave, saveState } = useSaveSection('visualization')
 
   function update(val: string) {
     const next = { scene: val }
@@ -354,7 +368,7 @@ function VisualizationSection({ init }: { init: Answers['visualization'] }) {
         理想の未来シーンを五感も含めて詳しく描写しよう。Canvaで画像を作るのもおすすめ。
       </p>
       <TextArea value={data.scene} onChange={update} placeholder="例: 朝、南の島のリゾートホテルのバルコニーで海を見ながらコーヒーを飲んでいる。白いリネンのシャツを着て、隣には大切な人がいる。仕事はスマホで完結していて…" rows={6} />
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
@@ -363,7 +377,7 @@ function WordPowerSection({ init }: { init: Answers['word_power'] }) {
   const [habits, setHabits] = useState<Array<{ original: string; positive: string }>>(
     init?.habits?.length ? init.habits : Array(10).fill(null).map(() => ({ original: '', positive: '' }))
   )
-  const { scheduleSave, saved } = useSaveSection('word_power')
+  const { scheduleSave, saveState } = useSaveSection('word_power')
 
   function update(idx: number, key: 'original' | 'positive', val: string) {
     const next = habits.map((h, i) => i === idx ? { ...h, [key]: val } : h)
@@ -397,14 +411,14 @@ function WordPowerSection({ init }: { init: Answers['word_power'] }) {
       <button onClick={addRow} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px dashed var(--color-border)', background: 'none', color: 'var(--color-muted)', fontSize: 13, cursor: 'pointer' }}>
         + 追加
       </button>
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
 
 function CompoundTimeSection({ init }: { init: Answers['compound_time'] }) {
   const [data, setData] = useState({ current: '', ideal_hours: '', to_cut: '', ...init })
-  const { scheduleSave, saved } = useSaveSection('compound_time')
+  const { scheduleSave, saveState } = useSaveSection('compound_time')
 
   function update(key: string, val: string) {
     const next = { ...data, [key]: val }
@@ -425,7 +439,7 @@ function CompoundTimeSection({ init }: { init: Answers['compound_time'] }) {
         <Label>理想から逆算して、最も削るべき時間は？</Label>
         <TextArea value={data.to_cut} onChange={v => update('to_cut', v)} placeholder="例: YouTube2h → 1hに。SNSのダラ見30分 → 0に" rows={3} />
       </div>
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
@@ -433,7 +447,7 @@ function CompoundTimeSection({ init }: { init: Answers['compound_time'] }) {
 function FivePeopleSection({ init }: { init: Answers['five_people'] }) {
   const [inner, setInner] = useState<string[]>(init?.inner ?? Array(5).fill(''))
   const [outer, setOuter] = useState<string[]>(init?.outer ?? Array(5).fill(''))
-  const { scheduleSave, saved } = useSaveSection('five_people')
+  const { scheduleSave, saveState } = useSaveSection('five_people')
 
   function updateInner(idx: number, val: string) {
     const next = inner.map((v, i) => i === idx ? val : v)
@@ -469,14 +483,14 @@ function FivePeopleSection({ init }: { init: Answers['five_people'] }) {
           />
         ))}
       </div>
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
 
 function MastermindSection({ init }: { init: Answers['mastermind'] }) {
   const [data, setData] = useState({ ideal: '', where: '', ...init })
-  const { scheduleSave, saved } = useSaveSection('mastermind')
+  const { scheduleSave, saveState } = useSaveSection('mastermind')
 
   function update(key: string, val: string) {
     const next = { ...data, [key]: val }
@@ -493,14 +507,14 @@ function MastermindSection({ init }: { init: Answers['mastermind'] }) {
         <Label>そういう人はどこに行けば見つかりそう？</Label>
         <TextArea value={data.where} onChange={v => update('where', v)} placeholder="例: ビジネス系のオンラインコミュニティ、読書会、インターン先…" rows={3} />
       </div>
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
 
 function SummarySection({ init }: { init: Answers['summary'] }) {
   const [data, setData] = useState({ learnings: '', changes: '', ...init })
-  const { scheduleSave, saved } = useSaveSection('summary')
+  const { scheduleSave, saveState } = useSaveSection('summary')
 
   function update(key: string, val: string) {
     const next = { ...data, [key]: val }
@@ -520,7 +534,7 @@ function SummarySection({ init }: { init: Answers['summary'] }) {
         <Label>これから具体的に何を変えていくか</Label>
         <TextArea value={data.changes} onChange={v => update('changes', v)} placeholder="明日からできる小さな行動から書いてみよう" rows={4} />
       </div>
-      <SavedBadge saved={saved} />
+      <SavedBadge saveState={saveState} />
     </SectionCard>
   )
 }
