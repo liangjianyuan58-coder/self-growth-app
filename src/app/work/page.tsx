@@ -193,18 +193,18 @@ function MoneyMindsetSection({ init }: { init: Answers['money_mindset'] }) {
         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 13, color: 'var(--color-muted)', flexShrink: 0, minWidth: 20 }}>{i + 1}.</span>
           <input
-            style={{ flex: 2, padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 13, fontFamily: 'inherit' }}
+            style={{ flex: 2, padding: '12px 10px', minHeight: 44, borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
             value={w.item} onChange={e => update(i, 'item', e.target.value)}
             placeholder="例: 海外移住"
           />
           <input
-            style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 13, fontFamily: 'inherit' }}
+            style={{ flex: 1, padding: '12px 10px', minHeight: 44, borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
             value={w.amount} onChange={e => update(i, 'amount', e.target.value)}
             placeholder="例: 500万"
           />
         </div>
       ))}
-      <button onClick={addRow} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px dashed var(--color-border)', background: 'none', color: 'var(--color-muted)', fontSize: 13, cursor: 'pointer' }}>
+      <button onClick={addRow} style={{ padding: '12px 14px', minHeight: 44, borderRadius: 8, border: '1.5px dashed var(--color-border)', background: 'none', color: 'var(--color-muted)', fontSize: 13, cursor: 'pointer', width: '100%' }}>
         + 追加
       </button>
       <SavedBadge saveState={saveState} />
@@ -224,9 +224,9 @@ function ChecklistSection({ init }: { init: Answers['checklist'] }) {
   return (
     <SectionCard sectionKey="checklist" emoji="✓" title="2. お金の知識チェックリスト" subtitle="できているものにチェック" done={checked.length > 0}>
       {CHECKLIST_ITEMS.map(item => (
-        <label key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+        <label key={item} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', minHeight: 48, padding: '4px 0', WebkitTapHighlightColor: 'transparent' }}>
           <input type="checkbox" checked={checked.includes(item)} onChange={() => toggle(item)}
-            style={{ marginTop: 2, accentColor: 'var(--color-accent)', flexShrink: 0, width: 16, height: 16 }} />
+            style={{ accentColor: 'var(--color-accent)', flexShrink: 0, width: 22, height: 22 }} />
           <span style={{ fontSize: 14, color: 'var(--color-text)', lineHeight: 1.5 }}>{item}</span>
         </label>
       ))}
@@ -258,12 +258,12 @@ function CostBenefitSection({ init }: { init: Answers['cost_benefit'] }) {
         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 13, color: 'var(--color-muted)', flexShrink: 0, minWidth: 20 }}>{i + 1}.</span>
           <input
-            style={{ flex: 2, padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 13, fontFamily: 'inherit' }}
+            style={{ flex: 2, padding: '12px 10px', minHeight: 44, borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
             value={e.item} onChange={ev => update(i, 'item', ev.target.value)}
             placeholder="例: スタバ、飲み会、参考書"
           />
           <select
-            style={{ padding: '8px 6px', borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: e.type ? TYPE_COLOR[e.type] : 'var(--color-muted)', fontSize: 12, fontWeight: 700 }}
+            style={{ padding: '10px 6px', minHeight: 44, borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: e.type ? TYPE_COLOR[e.type] : 'var(--color-muted)', fontSize: 13, fontWeight: 700, flexShrink: 0 }}
             value={e.type} onChange={ev => update(i, 'type', ev.target.value)}
           >
             <option value="">未分類</option>
@@ -335,13 +335,13 @@ function BeliefResetSection({ init }: { init: Answers['belief_reset'] }) {
       {musts.map((m, i) => (
         <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px', background: 'var(--color-bg-subtle)', borderRadius: 10 }}>
           <input
-            style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: 13, fontFamily: 'inherit' }}
+            style={{ padding: '12px 10px', minHeight: 44, borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-card)', color: 'var(--color-text)', fontSize: 14, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
             value={m.original} onChange={e => update(i, 'original', e.target.value)}
             placeholder={`${i + 1}. 〜しなければならない`}
           />
           {m.original && (
             <input
-              style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid #10b981', background: 'var(--color-bg-card)', color: '#10b981', fontSize: 13, fontFamily: 'inherit', fontWeight: 600 }}
+              style={{ padding: '12px 10px', minHeight: 44, borderRadius: 8, border: '1.5px solid #10b981', background: 'var(--color-bg-card)', color: '#10b981', fontSize: 14, fontFamily: 'inherit', fontWeight: 600, width: '100%', boxSizing: 'border-box' }}
               value={m.rewritten} onChange={e => update(i, 'rewritten', e.target.value)}
               placeholder="→ 〜しなくていい"
             />
@@ -397,7 +397,7 @@ function WordPowerSection({ init }: { init: Answers['word_power'] }) {
       {habits.map((h, i) => (
         <div key={i} style={{ display: 'flex', gap: 8 }}>
           <input
-            style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 13, fontFamily: 'inherit' }}
+            style={{ flex: 1, padding: '12px 10px', minHeight: 44, borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
             value={h.original} onChange={e => update(i, 'original', e.target.value)}
             placeholder="口癖"
           />
@@ -408,7 +408,7 @@ function WordPowerSection({ init }: { init: Answers['word_power'] }) {
           />
         </div>
       ))}
-      <button onClick={addRow} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px dashed var(--color-border)', background: 'none', color: 'var(--color-muted)', fontSize: 13, cursor: 'pointer' }}>
+      <button onClick={addRow} style={{ padding: '12px 14px', minHeight: 44, borderRadius: 8, border: '1.5px dashed var(--color-border)', background: 'none', color: 'var(--color-muted)', fontSize: 13, cursor: 'pointer', width: '100%' }}>
         + 追加
       </button>
       <SavedBadge saveState={saveState} />
@@ -467,7 +467,7 @@ function FivePeopleSection({ init }: { init: Answers['five_people'] }) {
         <Label>内側の円 — 最も一緒にいる5人（家族含む）</Label>
         {inner.map((v, i) => (
           <input key={i}
-            style={{ display: 'block', width: '100%', marginBottom: 6, padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--color-accent)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }}
+            style={{ display: 'block', width: '100%', marginBottom: 8, padding: '12px 10px', minHeight: 44, borderRadius: 8, border: '1.5px solid var(--color-accent)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
             value={v} onChange={e => updateInner(i, e.target.value)}
             placeholder={`${i + 1}. 名前や関係性`}
           />
@@ -477,7 +477,7 @@ function FivePeopleSection({ init }: { init: Answers['five_people'] }) {
         <Label>外側の円 — 次に時間を共にする5人</Label>
         {outer.map((v, i) => (
           <input key={i}
-            style={{ display: 'block', width: '100%', marginBottom: 6, padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }}
+            style={{ display: 'block', width: '100%', marginBottom: 8, padding: '12px 10px', minHeight: 44, borderRadius: 8, border: '1.5px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
             value={v} onChange={e => updateOuter(i, e.target.value)}
             placeholder={`${i + 1}. 名前や関係性`}
           />
